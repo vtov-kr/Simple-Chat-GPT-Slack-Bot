@@ -10,7 +10,18 @@ SLACK_BOT_TOKEN = "YOUR_SLACK_TOKEN_HERE"
 client = WebClient(token=SLACK_BOT_TOKEN)
 BOT_NAME = "ChatGPT bot"
 FIRST_MESSAGE_PROMPT = f"""
-Be as concise as possible. Your name is '{BOT_NAME}'.
+{BOT_NAME} is an AI assistant bot in a slack channel.
+{BOT_NAME} speaks as concise as possible. 
+{BOT_NAME} is helpful.
+{BOT_NAME} tries its best to give close-enough answer rather than just giving up and saying it does not know.
+{BOT_NAME} is creative.
+{BOT_NAME}'s responses should be informative, visual, logical and actionable.
+{BOT_NAME}'s responses should also be positive, interesting, entertaining and engaging.
+{BOT_NAME}'s responses should avoid being vague, controversial or off-topic.
+{BOT_NAME}'s logics and reasoning should be rigorous, intelligent and defensible.
+{BOT_NAME} can provide additional relevant details to respond thoroughly and comprehensively to cover multiple aspects in depth.
+{BOT_NAME} will emphasize the relevant parts of the responses to improve readability. For example, *bold*, or `blocks`.
+Here are conversations between a human and {BOT_NAME}.
 """
 
 # # Load your API key from an environment variable or secret management service
@@ -59,9 +70,14 @@ def replace_id_with_real_name(input_message):
     out: 'Cheolho Jeon: foo'
     """
     text = input_message["text"]
-    user = input_message["user"]
     user_ids = id_mention_pattern.findall(text)
-    user_ids.append(user)
+    user = "placeholder"
+    if "user" in input_message:
+        user = input_message["user"]
+        user_ids.append(user)
+    elif "bot_id" in input_message:
+        user = input_message["bot_id"]
+
     for user_id in user_ids:
         if user_id in ID_NAME_CACHE:
             real_name = ID_NAME_CACHE[user_id]
@@ -134,6 +150,7 @@ def handle_thread_message(event):
         ts=ts,
         inclusive=True
     )
+    print(all_messages)
     messages = all_messages.data["messages"]
     with_real_name = []
     for message in messages:
@@ -147,11 +164,33 @@ def handle_thread_message(event):
     return "", 200
 
 
+def handle_mention(event):
+    # exit early if we are already processing this. Added because slack is calling the API multiple times
+    # with same message.
+    ts = event["ts"]
+    if ts in PROCESSING_MESSAGES:
+        return "", 200
+    mark_as_processing(event)
+
+    save_author_name_to_cache(event)
+
+    if "thread_ts" in event:
+        return handle_thread_message(event)
+    else:
+        return handle_first_message(event)
+
+
+# can apply same logic as handle_mention.
+def handle_message(event):
+    return handle_mention(event)
+
+
 @app.route("/", methods=["POST"])
 def send_message_web():
     try:
         challenge = request.json["challenge"]
         if challenge:
+            print("handled challenge")
             return handle_challenge(challenge)
     except KeyError:
         pass
@@ -161,23 +200,23 @@ def send_message_web():
     print(payload)
     # Check if the request is a mention
     if "type" in payload and payload["type"] == "event_callback":
+        if "event" not in payload:
+            return "", 200
         event = payload["event"]
-        # if not a mention return.
-        if "type" not in event or event["type"] != "app_mention":
-            return "", 200
-        # exit early if we are already processing this. Added because slack is calling the API multiple times
-        # with same message.
-        ts = event["ts"]
-        if ts in PROCESSING_MESSAGES:
-            return "", 200
-        mark_as_processing(event)
 
-        save_author_name_to_cache(event)
+        is_bot = "bot_id" in event
+        if is_bot:  # we only reply to message from human.
+            return "", 200
 
-        if "thread_ts" in event:
-            return handle_thread_message(event)
+        if "type" not in event:
+            return "", 200
+        event_type = event["type"]
+        if event_type == "app_mention":  # mention in channel
+            return handle_mention(event)
+        elif event_type == "message":  # dm
+            return handle_message(event)
         else:
-            return handle_first_message(event)
+            return "", 200
 
     return "", 500
 
