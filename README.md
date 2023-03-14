@@ -3,6 +3,8 @@
 Simple script to add Chat GPT to your slack workspace.  
 한국어 설명이 하단에 있습니다.
 
+Last updated at 03/14/22 - added 1. DM handle, 2. better system prompt, 3. better Readme
+
 # Instructions:
 You will need to 1. create a slack bot, 2. open an Open AI account to use this script.
 
@@ -19,8 +21,9 @@ incoming-webhook
 mpim:history
 users:read
 ```
-3. Add your bot to a channel.
-4. set `SLACK_BOT_TOKEN` in `main.py`.
+3. In `Event subscriptions` page > `Subscribe to bot events` tab, grant `app_mention` (to listen to bot mention events) and `message.im` (to listen to DMs sent to the bot)
+4. Add your bot to a channel.
+5. set `SLACK_BOT_TOKEN` in `main.py`.
 
 ## Open AI
 1. Go to [Open AI](https://platform.openai.com/), create your account.
@@ -36,6 +39,8 @@ users:read
 ## Extra
 You must mention the bot to trigger the bot.
 The bot can also reply in thread (if mentioned).
+
+03/14 update: In DMs, you don't need to mention the bot.
 
 # 한국어:
 1. 슬랙 봇을 생성, 설정하시고,
@@ -54,6 +59,7 @@ incoming-webhook
 mpim:history
 users:read
 ```
+3. `Event subscriptions` 페이지 > `Subscribe to bot events` 탭에서, `app_mention` (채널 멘션을 듣기 위해서) 과 `message.im` (봇에게 전송된 DM 을 듣기 위해서)를 추가하세요.
 3. 봇을 원하시는 페이지에 초대하세요.
 4. `main.py`에서 `SLACK_BOT_TOKEN`을 설정하세요.
 
@@ -71,6 +77,8 @@ users:read
 ## Extra
 봇을 멘션하셔야지 봇이 응답합니다.
 쓰레드에서도 봇을 멘션하셔야 봇이 응답합니다.
+
+03/14 업데이트: DM에서는 봇을 멘션하지 않으셔도 응답합니다.
 
 # AD / 광고
 VTOV 는 수도권 당일배송 서비스 Today 를 운영하는 IT 기반 물류 스타트업입니다.  
