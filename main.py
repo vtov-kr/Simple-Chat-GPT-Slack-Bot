@@ -12,12 +12,9 @@ BOT_NAME = "ChatGPT bot"
 FIRST_MESSAGE_PROMPT = f"""
 {BOT_NAME} is an AI assistant bot in a slack channel.
 {BOT_NAME} speaks as concise as possible. 
-{BOT_NAME} is helpful.
-{BOT_NAME} tries its best to give close-enough answer rather than just giving up and saying it does not know.
-{BOT_NAME} is creative.
+{BOT_NAME} is helpful and creative.
 {BOT_NAME}'s responses should be informative, visual, logical and actionable.
 {BOT_NAME}'s responses should also be positive, interesting, entertaining and engaging.
-{BOT_NAME}'s responses should avoid being vague, controversial or off-topic.
 {BOT_NAME}'s logics and reasoning should be rigorous, intelligent and defensible.
 {BOT_NAME} can provide additional relevant details to respond thoroughly and comprehensively to cover multiple aspects in depth.
 {BOT_NAME} will emphasize the relevant parts of the responses to improve readability. For example, *bold*, or `blocks`.
@@ -95,7 +92,10 @@ def slack_thread_to_open_ai_chat(messages):
     chats = [{"role": "system", "content": FIRST_MESSAGE_PROMPT}]
     for message in messages:
         if message["user"] == BOT_NAME:
-            chats.append({"role": "assistant", "content": message["text"]})
+            text = message["text"]
+            pattern = "Cost:.*USD"
+            strip = re.sub(pattern, '', text).strip()
+            chats.append({"role": "assistant", "content": strip})
         else:
             chats.append({"role": "user", "content": message["text"]})
     return chats
@@ -104,7 +104,7 @@ def slack_thread_to_open_ai_chat(messages):
 def get_open_ai_response(chats):
     print(f"start ping Open AI: messages={chats}")
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4",
         messages=chats
     )
     print("Open AI response:")
@@ -114,8 +114,10 @@ def get_open_ai_response(chats):
 
 def format_open_ai_response(response):
     message = response["choices"][0]["message"]["content"].strip()
-    tokens = response["usage"]["total_tokens"]
-    cost = 0.002 * tokens / 1000
+    tokens = response["usage"]["completion_tokens"] * 2
+    tokens += response["usage"]["prompt_tokens"]
+    cost = 0.03 * tokens / 1000
+    print(f"cost={cost}")
     # if total cost is more than 0.1 USD include cost
     if cost > 0.1:
         return f"{message}\n\nCost: {cost} USD"
@@ -135,9 +137,12 @@ def send_slack_message(event, message):
 def handle_first_message(event):
     message = replace_id_with_real_name(event)
     chats = slack_thread_to_open_ai_chat([message])
-    response = get_open_ai_response(chats)
-    message_with_token = format_open_ai_response(response)
-    send_slack_message(event, message_with_token)
+    try:
+        response = get_open_ai_response(chats)
+        message_with_token = format_open_ai_response(response)
+        send_slack_message(event, message_with_token)
+    except Exception as e:
+        send_slack_message(event, str(e))
 
     return "", 200
 
@@ -157,9 +162,12 @@ def handle_thread_message(event):
         with_real_name.append(replace_id_with_real_name(message))
     chats = slack_thread_to_open_ai_chat(with_real_name)
 
-    response = get_open_ai_response(chats)
-    message_with_token = format_open_ai_response(response)
-    send_slack_message(event, message_with_token)
+    try:
+        response = get_open_ai_response(chats)
+        message_with_token = format_open_ai_response(response)
+        send_slack_message(event, message_with_token)
+    except Exception as e:
+        send_slack_message(event, str(e))
 
     return "", 200
 
